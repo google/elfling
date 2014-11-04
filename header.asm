@@ -106,7 +106,7 @@ entry:
 ; some space for the variables. 
 mov ebp, 0xffffffff ; Keep variables just after compressed data, replaced by crunkler
 mov edi, base + 0x10000  ; Dest [keep in edi]
-;push edi
+push edi ; Push dest address for jumping to when we have finished decompression.
 inc byte [edi] ; Set first output byte to 1.
 mov dword [ebp + v_archive], ebp ; Current input pointer.
 
@@ -212,9 +212,7 @@ jmp .killbits
 .donekilling:
 dec dword [ebp + v_osize]  ; Size
 jnz .iterate
-;ret
-jmp 0x10000
-
+ret
 
 db'XXXX-Compressed code here-XXXX'
 

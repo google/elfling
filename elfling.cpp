@@ -414,7 +414,7 @@ int main(int argc, char* argv[]) {
   u8* bin = (u8*)malloc(65536);
   u8* data = (u8*)malloc(65536);
   u32 ds;
-  Optimize(finalout, finalsize, data, &ds); 
+  Optimize(finalout, finalsize + 1, data, &ds); 
   Invert(data, ds);
   memcpy(bin, header, sz);
   memcpy(&bin[sz], data, ds);
