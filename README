@@ -11,7 +11,7 @@ caveats should be taken into account when using:
   While I have tested quite a few relocation and data declaration possibilities
   I am absolutely certain to have missed a few :-)
 - 32-bit only. While the resulting binaries will run on 64-bit Linux, users will
-  need to install the required 32-bit libraries for runnign your stuff.
+  need to install the required 32-bit libraries for running your stuff.
   
 Have fun :-) Improvements welcome, this is open source after all!
 

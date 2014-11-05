@@ -33,3 +33,15 @@ bin/flow2: flow2.c bin/elfling
 	bin/elfling bin/flow2.o -obin/flow2  -llibSDL-1.2.so.0 -llibGL.so.1 #-fnosh
 	chmod 755 bin/flow2
 
+	
+bin/packer: packer.cpp unpack.c pack.c
+	g++ -std=c++11 -g packer.cpp -c -o bin/packer.o -m32
+	gcc -std=c99 -g -g unpack.c -c -o bin/unpack.o -m32
+	gcc -std=c99 -g -g pack.c -c -o bin/pack.o -m32
+	g++ -std=c++11 -g bin/packer.o bin/pack.o bin/unpack.o -o bin/packer -m32
+	
+packtest: bin/packer bin/prt
+	bin/packer bin/prt
+	bin/packer bin/prt.pack
+	diff bin/prt bin/prt.unpack
+
