@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "header.h"
+#include "pack.h"
 
 typedef unsigned char u8;
 typedef unsigned int u32;
@@ -107,13 +108,13 @@ public:
     }
     if (ehdr_.e_phnum) {
       if (ehdr_.e_phentsize != sizeof(Elf32_Phdr)) { 
-        printf("Object %s has unexpected e_phentsize (%d != %d)\n", fn, ehdr_.e_phentsize, sizeof(Elf32_Phdr));
+        printf("Object %s has unexpected e_phentsize (%d != %lu)\n", fn, ehdr_.e_phentsize, sizeof(Elf32_Phdr));
         return false;
       }
       memcpy(phdr_, &obj_[ehdr_.e_phoff], ehdr_.e_phnum * ehdr_.e_phentsize);
     }
     if (ehdr_.e_shentsize != sizeof(Elf32_Shdr)) { 
-      printf("Object %s has unexpected e_shentsize (%d != %d)\n", fn, ehdr_.e_shentsize, sizeof(Elf32_Shdr));
+      printf("Object %s has unexpected e_shentsize (%d != %lu)\n", fn, ehdr_.e_shentsize, sizeof(Elf32_Shdr));
       return false;
     }
     memcpy(shdr_, &obj_[ehdr_.e_shoff], ehdr_.e_shnum * ehdr_.e_shentsize);
@@ -201,10 +202,6 @@ const char* FlagWithDefault(char f, const char* def) {
     return def;
   }
 }
-
-extern "C" void Optimize(u8* archive, u32 size, u8* out, u32* osize);
-extern u8 weights[4];
-extern u8 contexts[4];
 
 void Invert(u8* data, u32 s) {
   for (u32 i = 0; i < s >> 1; ++i) {
@@ -346,6 +343,7 @@ int main(int argc, char* argv[]) {
     // Copy section contents.
     memcpy(&finalout[sec.second], obj.GetSection(sec.first.c_str())->Data(), obj.GetSection(sec.first.c_str())->Size());
   }
+  memset(&finalout[finalsize], 0, 16);  // Add a few zeroes at the end.
   
   u32 commonbase = (finalsize + 255) & (~255); 
   if (bss) {
@@ -413,18 +411,35 @@ int main(int argc, char* argv[]) {
   
   u8* bin = (u8*)malloc(65536);
   u8* data = (u8*)malloc(65536);
-  u32 ds;
-  Optimize(finalout, finalsize + 1, data, &ds); 
+  int ds = 65536;
+  Compressor* c = new Compressor();
+  CompressionParameters params;
+  params.FromString(FlagWithDefault('c', ""));
+  c->Compress(&params, finalout, finalsize + 4, data, &ds);
   Invert(data, ds);
+
+  // Sanity check our compressed data by decompressing it again.
+  memset(bin, 0, 65536);
+  c->Decompress(&params, &data[ds - 4], bin + 8, finalsize);
+  if (memcmp(finalout, bin + 8, finalsize)) {
+    printf("Decompression failed, first 10 different bytes\n");
+    int c = 0;
+    for (int i = 0; i < finalsize; ++i) {
+      if (finalout[i] != bin[i + 8]) {
+        printf("%6x: %2.2x != %2.2x\n", i, finalout[i], bin[i + 8]);
+        c++;
+        if (c == 10) break;
+      }
+    }
+  }
   memcpy(bin, header, sz);
   memcpy(&bin[sz], data, ds);
   sz += ds;
-  u32* xd = (u32*)&bin[sz];
-  xd[0] = finalsize * 8;
-  xd[1] = *(u32*)weights;
-  xd[2] = *(u32*)contexts;
-  sz += 12;
-  *(u32*)&bin[0xd8] = 0x08000000 + sz - 16; 
+  *(u32*)&bin[0xd8] = 0x08000000 + sz - 4;  // Set pointer to last 4 bytes of compressed data. 
+  *(u32*)&bin[sz] = finalsize * 8 ;
+  memcpy(&bin[sz + 4], params.weights, params.contextCount);
+  memcpy(&bin[sz + 4 + params.contextCount], params.contexts, params.contextCount);
+  sz += 4 + 2 * params.contextCount;
   *(u32*)&bin[0x7c] = sz; 
 
   FILE* fptr = fopen(FlagWithDefault('o', "c.out"), "wb");

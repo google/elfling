@@ -16,6 +16,7 @@
 
 bits 32
 base equ 0x08000000
+ccount equ 8 ; Number of contexts.
 
 ; Elf32_Ehdr
 db 0x7f, 'ELF'  ; e_ident (the part that is validated)
@@ -91,15 +92,15 @@ db '/lib/ld-linux.so.2', 0
 libsdl:
 db 'libSDL-1.2.so.0', 0  ; Gets us libc, but no OpenGL.
 
-v_counters equ 48
-v_cp equ 32 
-v_x1 equ 24
-v_x2 equ 20
-v_archive equ 16
-v_contexts equ 12
-v_weights equ 8
-v_osize equ 4
 v_dataend equ 0 ; Last dword of compressed data
+v_osize equ 4 ; This is written in by elfling
+v_weights equ 8 ; This is written in by elfling
+v_contexts equ v_weights + ccount ; This is written in by elfling
+v_archive equ v_contexts + ccount ; This is the start of our runtime variables
+v_x2 equ v_archive + 4
+v_x1 equ v_x2 + 4
+v_cp equ v_x1 + 4
+v_counters equ v_cp + 4 * ccount
 
 entry:
 ; The destination is placed at 64k, so the compressed data cannot be larger than that. We also need
@@ -111,12 +112,12 @@ inc byte [edi] ; Set first output byte to 1.
 mov dword [ebp + v_archive], ebp ; Current input pointer.
 
 xor ecx, ecx
-mov cl, 4
+mov cl, ccount
 mov dl, 9
 .nextCounter:
-mov byte [ebp + v_counters + ecx * 4 - 4 + 3], dl ; Address is 0x09000000 (and then 0x0b, 0x0d, 0x0f)
+mov byte [ebp + v_counters + ecx * 4 - 4 + 3], dl ; Address is 0x09000000 (and then 0x0a, 0x0b, 0x0c, ...)
 mov byte [ebp + v_cp + ecx * 4 - 4 + 3], dl
-add dl, 2
+inc dl
 loop .nextCounter
 
 mov [ebp + v_x1], ecx ; x1 = 0
@@ -129,9 +130,9 @@ xor eax, eax
 xor edx, edx
 inc edx ; n0 = 1 [edx]
 lea ebx, [2 * edx] ;  n0 + n1 = 2 [ebx]
-mov cl, 4
+mov cl, ccount
 .nextweight:
-mov esi, [ebp + v_cp + ecx * 4 - 4] ; Even
+mov esi, [ebp + v_cp + ecx * 4 - 4]
 lodsb
 mul byte [ebp + v_weights + ecx - 1]
 add edx, eax ; n0
@@ -149,7 +150,6 @@ mul edx
 div ebx
 add eax, [ebp + v_x1] ; xmid [eax]
 
-.havexmid:
 xor edx, edx
 mov esi, [ebp + v_archive] ; archive
 cmp eax, [esi] ; Compare *(u32*)archive with xmid
@@ -168,7 +168,7 @@ inc edi
 inc byte [edi]
 .notyet:
 
-mov cl, 4
+mov cl, ccount
 .nextmodel:
 mov esi, [ebp + v_cp + ecx * 4 - 4]
 add esi, edx ; Select counter matching our bit
@@ -180,7 +180,6 @@ jb .noadjust
 shr byte [esi], 1
 inc byte [esi]
 .noadjust:
-
 xor eax, eax
 mov bl, 1 ; Mask bit
 mov bh, [ebp + v_contexts + ecx - 1]
@@ -194,9 +193,18 @@ dec edi
 shl bl, 1
 jnz .nextcontextbyte
 add edi, 8
-shl eax, 1
-add eax, [ebp + v_counters + ecx * 4 - 4] 
-mov [ebp + v_cp + ecx * 4 - 4], eax
+mov esi, [ebp + v_counters + ecx * 4 - 4]
+.nextval:
+cmp dword [esi], eax
+je .foundentry
+cmp dword [esi], 0
+je .foundentry
+add esi, 6
+jmp .nextval
+.foundentry:
+mov dword [esi], eax
+add esi, 4
+mov [ebp + v_cp + ecx * 4 - 4], esi
 loop .nextmodel
 
 .killbits:
