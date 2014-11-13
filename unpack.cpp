@@ -37,7 +37,7 @@ void Compressor::Decompress(CompressionParameters* params, void* in, void* out, 
   u32 x1 = 0, x2 = 0xffffffff;                              
   for (u32 j = outLen * 8; j > 0; --j) {
     // Split the range
-    u16 n0 = 1, n1 = 1;
+    u32 n0 = 1, n1 = 1;
     for (char m = 0; m < params->contextCount; ++m) {
       n0 += cp[m][0] * params->weights[m];
       n1 += cp[m][1] * params->weights[m];
@@ -65,8 +65,8 @@ void Compressor::Decompress(CompressionParameters* params, void* in, void* out, 
     for (char m = 0; m < params->contextCount; ++m) {
       if (cp[m][y] < 255)
         ++cp[m][y];
-      if (cp[m][1-y] > 2)
-        cp[m][1-y] = cp[m][1-y] / 2 + 1;
+      if (cp[m][1 - y] > 2)
+        cp[m][1 - y] = cp[m][1 - y] / 2 + 1;
       u32 off = 0, cnt = 0;
       for (char i = 0; i < 8; ++i) {
         if (params->contexts[m] & (1 << i)) {
@@ -80,7 +80,7 @@ void Compressor::Decompress(CompressionParameters* params, void* in, void* out, 
     }
 
     // Shift equal MSB's out
-    while (((x1^x2) >> 24) == 0) {
+    while (((x1 ^ x2) >> 24) == 0) {
       x1 <<= 8;
       x2 = (x2 << 8) + 255;
       --archive;

@@ -415,12 +415,13 @@ int main(int argc, char* argv[]) {
   Compressor* c = new Compressor();
   CompressionParameters params;
   params.FromString(FlagWithDefault('c', ""));
-  c->Compress(&params, finalout, finalsize + 4, data, &ds);
-  Invert(data, ds);
+  c->Compress(&params, finalout, finalsize, data + 8, &ds);
+  Invert(data + 8, ds);
+  memcpy(data, &header[sz - 8], 8);
 
   // Sanity check our compressed data by decompressing it again.
   memset(bin, 0, 65536);
-  c->Decompress(&params, &data[ds - 4], bin + 8, finalsize);
+  c->Decompress(&params, &data[8 + ds - 4], bin + 8, finalsize);
   if (memcmp(finalout, bin + 8, finalsize)) {
     printf("Decompression failed, first 10 different bytes\n");
     int c = 0;
@@ -433,7 +434,7 @@ int main(int argc, char* argv[]) {
     }
   }
   memcpy(bin, header, sz);
-  memcpy(&bin[sz], data, ds);
+  memcpy(&bin[sz], data + 8, ds);
   sz += ds;
   *(u32*)&bin[0xd8] = 0x08000000 + sz - 4;  // Set pointer to last 4 bytes of compressed data. 
   *(u32*)&bin[sz] = finalsize * 8 ;

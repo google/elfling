@@ -256,7 +256,7 @@ bool Compressor::CompressSingle(CompressionParameters* comp, void* in, int inLen
     u32 byte = *archive++;
     for (u32 i = 0; i < 8; ++i) {
       // Split the range
-      int n0 = 1, n1 = 1;
+      u32 n0 = 1, n1 = 1;
       for (int m = 0; m < comp->contextCount; ++m) {
         n0 += cp[m][0] * comp->weights[m];
         n1 += cp[m][1] * comp->weights[m];
@@ -308,22 +308,29 @@ bool Compressor::CompressSingle(CompressionParameters* comp, void* in, int inLen
       }
 
       // Shift equal MSB's out
-      while (((x1^x2)&0xff000000)==0) {
-        *cout++ = x2>>24;
-        x1<<=8;
-        x2=(x2<<8)+255;
+      while (((x1 ^ x2) & 0xff000000) == 0) {
+        *cout++ = x2 >> 24;
+        x1 <<= 8;
+        x2 = (x2 << 8) + 255;
         if (cout - (u8*)out >= *outLen) return false;
       }
       byte <<= 1;
     }
   }
-  while (((x1^x2) & 0xff000000)==0) {
+  while (((x1 ^ x2) & 0xff000000)==0) {
     *cout++ = x2 >> 24;
     x1 <<= 8;
     x2 = (x2 << 8) + 255;
     if (cout - (u8*)out >= *outLen) return false;
   }
   *cout++ = x2 >> 24;  // First unequal byte
+  // Now for some weirdness: if the next byte happens to be less than 0xc3 (the
+  // ret opcode), we need to output something that's less than that. Zero is a
+  // good candidate.
+  if (((x2 >> 16) & 0xff) < 0xc3) {
+    if (cout - (u8*)out >= *outLen) return false;
+    *cout++ = 0;
+  }
   *outLen = cout - (u8*)out;
   return true;
 }

@@ -31,7 +31,7 @@ bin/prt2: bin/prt.o bin/elfling
 
 bin/flow2: flow2.c bin/elfling
 	gcc -Os -c flow2.c -fomit-frame-pointer -fno-exceptions -ffast-math -fsingle-precision-constant -o bin/flow2.o -m32
-	bin/elfling bin/flow2.o -obin/flow2  -llibSDL-1.2.so.0 -llibGL.so.1 -c0801010205030b06073a273ac30403071d
+	bin/elfling bin/flow2.o -obin/flow2  -llibSDL-1.2.so.0 -llibGL.so.1 -c0801010205030b0c0734273ac304030799
 	chmod 755 bin/flow2
 
 bin/packer: packer.cpp unpack.cpp pack.cpp pack.h
