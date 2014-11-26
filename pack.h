@@ -59,6 +59,7 @@ private:
 
 private:
   unsigned char modelCounters_[MAX_CONTEXT_SIZE * MAX_CONTEXT_COUNT];
+  bool verbose_ = false;
 };
 
 #endif  // INCLUDED_PACK_H

@@ -21,14 +21,14 @@
 #include <string.h>
 #include <time.h>
 
-int verbose = 0;
 int cmax = 0;
 
 #define CONTEXT_COUNT 8
-#define CONTEXT_WEIGHTS 2
 
 #define GENOME_SIZE 48
 #define GENOME_ITERATIONS 100
+
+#define MAX_WEIGHT 60
 
 int FromHexDigit(char d) {
   if (d >= '0' && d <= '9') return d - '0';
@@ -125,7 +125,7 @@ bool Compressor::Compress(CompressionParameters* params, void* in, int inLen, vo
     ++pc;
   }
   qsort(pats, pc, sizeof(Context), (__compar_fn_t)CompareContext);
-  if (verbose) {
+  if (verbose_) {
     for (int i = 0; i < pc; ++i) {
       printf("Pattern %2d [%2.2x] = %d bytes @ %d\n", i, pats[i].ctx, pats[i].bs, pats[i].bw);
     }  
@@ -142,7 +142,7 @@ bool Compressor::Compress(CompressionParameters* params, void* in, int inLen, vo
         g[i].params.weights[j] = 20;
       } else {
         g[i].params.contexts[j] = pats[rand() % (pc / 4)].ctx;
-        g[i].params.weights[j] = rand() % 60 + 1;
+        g[i].params.weights[j] = rand() % MAX_WEIGHT + 1;
       }
     }
   }
@@ -196,7 +196,7 @@ bool Compressor::Compress(CompressionParameters* params, void* in, int inLen, vo
         if (byte < CONTEXT_COUNT) {
           g[j - 1].params.contexts[byte] = pats[rand() % pc].ctx;
         } else {
-          g[j - 1].params.weights[byte - CONTEXT_COUNT] = rand() % 60 + 1;
+          g[j - 1].params.weights[byte - CONTEXT_COUNT] = rand() % MAX_WEIGHT + 1;
         }
       }
     }
@@ -211,7 +211,7 @@ bool Compressor::Compress(CompressionParameters* params, void* in, int inLen, vo
         if (byte < CONTEXT_COUNT) {
           g[j].params.contexts[byte] = pats[rand() % pc].ctx;
         } else {
-          g[j].params.weights[byte - CONTEXT_COUNT] = rand() % 60 + 1;
+          g[j].params.weights[byte - CONTEXT_COUNT] = rand() % MAX_WEIGHT + 1;
         }
       }
     }
@@ -255,19 +255,17 @@ bool Compressor::CompressSingle(CompressionParameters* comp, void* in, int inLen
   for (int j = 0; j < inLen; ++j) {
     u32 byte = *archive++;
     for (u32 i = 0; i < 8; ++i) {
-      // Split the range
       u32 n0 = 1, n1 = 1;
       for (int m = 0; m < comp->contextCount; ++m) {
         n0 += cp[m][0] * comp->weights[m];
         n1 += cp[m][1] * comp->weights[m];
       }
-      
+
       u32 xmid = x1 + n0 * (u64)(x2 - x1) / (n0 + n1); 
-                                                          
-      // Update the range
+
       int y;
       if (byte & 0x80) {
-        x1 = xmid+1;
+        x1 = xmid + 1;
         y = 1;
       } else {
         x2 = xmid;
@@ -283,7 +281,7 @@ bool Compressor::CompressSingle(CompressionParameters* comp, void* in, int inLen
         tbuf[4] = tbuf[3];
         tbuf[3] = tbuf[2];
         tbuf[2] = tbuf[1];
-        tbuf[1] = tbuf[0]; 
+        tbuf[1] = tbuf[0];
         tbuf[0] = 1;
       }
 
@@ -307,7 +305,6 @@ bool Compressor::CompressSingle(CompressionParameters* comp, void* in, int inLen
         cp[m] = &counters[m][c + 4];
       }
 
-      // Shift equal MSB's out
       while (((x1 ^ x2) & 0xff000000) == 0) {
         *cout++ = x2 >> 24;
         x1 <<= 8;

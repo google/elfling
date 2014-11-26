@@ -51,7 +51,7 @@ void _start() {
   printf("a: %p %d\n", &a, a);
   printf("b: %p %d\n", &b, b);
   printf("c: %p %d\n", c, c[0]);
-  HexDump((void*)0x08010000, 1024);
+  //HexDump((void*)0x08010000, 1024);
   __asm ("mov $1, %eax\n"
     "mov %eax, %ebx\n"
     "int $0x80");

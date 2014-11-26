@@ -1,5 +1,6 @@
 *~
 bin
-header.h
+header32.h
+header64.h
 test
 core
